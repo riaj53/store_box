@@ -1,0 +1,25 @@
+name: store_box
+description: A fast, enjoyable, and secure NoSQL database written in pure Dart. Inspired by Hive.
+version: 0.1.0
+homepage: https://github.com/riaj53/store_box
+
+environment:
+  sdk: '>=3.4.0 <5.0.0'
+  flutter: ">=1.17.0"
+
+dependencies:
+  cryptography: ^2.7.0
+  flutter:
+    sdk: flutter
+  meta: ^1.16.0
+  path: ^1.9.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+  lints: ^5.1.1
+  test: ^1.25.15
+
+flutter:
+

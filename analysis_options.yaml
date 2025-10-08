@@ -1,0 +1,11 @@
+include: package:lints/recommended.yaml
+
+linter:
+  rules:
+    - public_member_api_docs
+    - prefer_final_locals
+    - prefer_const_constructors
+    - unnecessary_this
+    - prefer_single_quotes
+    - sort_constructors_first
+    - sort_child_properties_last
