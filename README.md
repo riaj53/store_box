@@ -51,7 +51,7 @@ Highly optimized for large-scale datasets
 
 Getting Started
 1. Add to pubspec.yaml
-   Add this to your package's pubspec.yaml file. Make sure to get the latest version from pub.dev.
+   Add this to your package's pubspec.yaml file.
 
 dependencies:
 store_box: ^1.0.0
@@ -66,18 +66,10 @@ import 'package:store_box/store_box.dart';
 import 'package:path_provider/path_provider.dart';
 
 void main() async {
-// Ensure Flutter is initialized
 WidgetsFlutterBinding.ensureInitialized();
-
-// Get a safe directory for the database
 final appDocumentDir = await getApplicationDocumentsDirectory();
-
-// Initialize StoreBox
 await StoreBox().init(appDocumentDir.path);
-
-// Register any custom adapters
 StoreBox().registerAdapter(UserAdapter());
-
 runApp(const MyApp());
 }
 
@@ -85,13 +77,8 @@ Usage Examples
 1. Basic Operations (Get & Put)
    A "box" is like a table in a SQL database. You can open as many as you need.
 
-// Open a box to store settings
 final settingsBox = await StoreBox().openBox('settings');
-
-// Save a value
 await settingsBox.put('darkMode', true);
-
-// Read a value
 final bool isDarkMode = settingsBox.get('darkMode') ?? false;
 print('Dark Mode is enabled: $isDarkMode');
 
@@ -108,7 +95,7 @@ User(this.name, this.age);
 // 2. Its TypeAdapter
 class UserAdapter extends TypeAdapter<User> {
 @override
-final int typeId = 1; // Must be unique for each adapter
+final int typeId = 1;
 
 @override
 User read(BinaryReader reader) {
@@ -122,9 +109,7 @@ writer.write(obj.age);
 }
 }
 
-// 3. Register the adapter in main() (see Getting Started)
-
-// 4. Use it!
+// 3. Use it! (After registering the adapter in main())
 final userBox = await StoreBox().openBox<User>('users');
 await userBox.put('user_123', User('Alice', 30));
 final alice = userBox.get('user_123');
@@ -135,16 +120,10 @@ print(alice?.name); // Prints "Alice"
 
 import 'dart:convert';
 
-// Generate a secure key. In a real app, store this in secure storage.
 final encryptionKey = utf8.encode('a_very_strong_32_byte_secret_key');
-
-// Open an encrypted box
 final secretBox = await StoreBox().openBox('secrets', encryptionKey: encryptionKey);
-
 await secretBox.put('apiKey', '123-ABC-789');
 print(secretBox.get('apiKey')); // Prints "123-ABC-789"
-
-The data in the secrets.box file on disk will be completely unreadable without the key.
 
 Contributing
 Contributions are welcome! If you find a bug or have a feature request, please open an issue on GitHub.
