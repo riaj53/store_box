@@ -1,11 +1,9 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:path/path.dart' as p;
+import 'package:store_box/src/binary/binary_reader.dart';
+import 'package:store_box/src/binary/binary_writer.dart';
 import 'package:store_box/store_box.dart';
-
-import '../src/binary/binary_reader.dart';
-import '../src/binary/binary_writer.dart';
-
 // --- 1. Define a Custom Object ---
 class User {
   final String name;
