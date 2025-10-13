@@ -1,7 +1,10 @@
+
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:cryptography/cryptography.dart';
 import 'package:path/path.dart' as p;
+// ADD THIS IMPORT
+import 'package:path_provider/path_provider.dart';
 import 'binary/binary_reader.dart';
 import 'binary/binary_writer.dart';
 import 'encryption.dart';
@@ -9,67 +12,103 @@ import 'type_adapter.dart';
 
 /// A custom exception for StoreBox-specific errors.
 class StoreBoxException implements Exception {
-  /// The message describing the error.
   final String message;
-  /// Creates a new StoreBoxException.
   StoreBoxException(this.message);
   @override
   String toString() => 'StoreBoxException: $message';
 }
 
-/// The main class for managing all database boxes.
+/// A fast and simple NoSQL database for Dart and Flutter.
 class StoreBox {
+  // --- Singleton Setup ---
   static final StoreBox _instance = StoreBox._internal();
-  /// The factory constructor to access the singleton instance.
-  factory StoreBox() => _instance;
   StoreBox._internal();
 
+  // --- Instance Variables ---
   String? _path;
+  static const String _defaultBoxName = 'store_box_default';
+  Box<dynamic>? _defaultBox;
+
   final Map<int, TypeAdapter> _adapters = {};
   final Map<Type, TypeAdapter> _adaptersByType = {};
-  final Map<String, Box> _openBoxes = {};
+  final Map<String, Box> _openBoxesByName = {};
 
-  /// Initializes the database at a specific directory.
-  Future<void> init(String path) async {
-    _path = path;
-    final dir = Directory(path);
+  // --- CORE API ---
+
+  /// Initializes the database. Must be called once before use.
+  /// A default box for simple key-value storage is prepared automatically.
+  static Future<void> init([String? path]) async {
+    // --- THIS IS THE CORRECTED LOGIC ---
+    if (path == null) {
+      // If the user doesn't provide a path, get the app's documents directory.
+      final docDir = await getApplicationDocumentsDirectory();
+      _instance._path = p.join(docDir.path, 'db');
+    } else {
+      _instance._path = path;
+    }
+    // --- END OF CORRECTION ---
+
+    final dir = Directory(_instance._path!);
     if (!(await dir.exists())) {
       await dir.create(recursive: true);
     }
+
+    _instance._defaultBox = await openBox<dynamic>(_defaultBoxName);
   }
 
+  // ... rest of the file is the same ...
+
   /// Registers a TypeAdapter for serializing custom objects.
-  void registerAdapter<T>(TypeAdapter<T> adapter) {
-    if (_adapters.containsKey(adapter.typeId)) {
+  static void registerAdapter<T>(TypeAdapter<T> adapter) {
+    if (_instance._adapters.containsKey(adapter.typeId)) {
+      if (_instance._adapters[adapter.typeId].runtimeType == adapter.runtimeType) return;
       throw StoreBoxException(
           'Adapter with typeId ${adapter.typeId} already registered.');
     }
-    _adapters[adapter.typeId] = adapter;
-    _adaptersByType[T] = adapter;
+    _instance._adapters[adapter.typeId] = adapter;
+    _instance._adaptersByType[T] = adapter;
   }
 
-  /// Opens a box.
-  Future<Box<V>> openBox<V>(String name, {List<int>? encryptionKey}) async {
-    if (_path == null) {
-      throw StateError(
-          "StoreBox has not been initialized. Please call init() first.");
-    }
-    if (_openBoxes.containsKey(name)) {
-      return _openBoxes[name] as Box<V>;
+  /// Saves a value to the default storage.
+  static Future<void> put(String key, dynamic value) {
+    _ensureInitialized();
+    return _instance._defaultBox!.put(key, value);
+  }
+
+  /// Retrieves a value from the default storage. This is synchronous.
+  static T? get<T>(String key) {
+    _ensureInitialized();
+    return _instance._defaultBox!.get(key) as T?;
+  }
+
+  /// Deletes a value from the default storage.
+  static Future<void> delete(String key) {
+    _ensureInitialized();
+    return _instance._defaultBox!.delete(key);
+  }
+
+  /// Clears all data from the default storage.
+  static Future<void> clear() {
+    _ensureInitialized();
+    return _instance._defaultBox!.clear();
+  }
+
+  /// Opens a named box for organized storage.
+  static Future<Box<V>> openBox<V>(String name, {List<int>? encryptionKey}) async {
+    _ensurePathSet();
+    if (_instance._openBoxesByName.containsKey(name)) {
+      return _instance._openBoxesByName[name] as Box<V>;
     }
 
     EncryptionCipher? cipher;
     if (encryptionKey != null) {
-      final saltFile = File(p.join(_path!, '$name.salt'));
+      final saltFile = File(p.join(_instance._path!, '$name.salt'));
       late Uint8List salt;
       if (await saltFile.exists()) {
         salt = await saltFile.readAsBytes();
       } else {
-        // CORRECTED: This is the robust way to generate a list of secure
-        // random bytes, avoiding the method resolution error.
         final random = SecureRandom.safe;
-        salt = Uint8List.fromList(
-            List<int>.generate(16, (i) => random.nextInt(256)));
+        salt = Uint8List.fromList(List<int>.generate(16, (i) => random.nextInt(256)));
         await saltFile.writeAsBytes(salt);
       }
       cipher = await EncryptionCipher.fromPassword(encryptionKey, salt);
@@ -77,18 +116,44 @@ class StoreBox {
 
     final box = Box<V>._(
       name,
-      p.join(_path!, '$name.box'),
+      p.join(_instance._path!, '$name.box'),
       cipher,
-      _adapters,
-      _adaptersByType,
+      _instance._adapters,
+      _instance._adaptersByType,
     );
     await box._init();
-    _openBoxes[name] = box;
+
+    _instance._openBoxesByName[name] = box;
     return box;
+  }
+
+  /// Gets a previously opened named box synchronously.
+  static Box<dynamic> box(String name) {
+    final box = _instance._openBoxesByName[name];
+    if (box == null) {
+      throw StateError(
+        "Box named '$name' not found. "
+            "Did you forget to call 'StoreBox.openBox(\"$name\")' first?",
+      );
+    }
+    return box;
+  }
+
+  static void _ensureInitialized() {
+    if (_instance._defaultBox == null) {
+      throw StateError(
+          "StoreBox has not been initialized. Please call await StoreBox.init() in your main() function.");
+    }
+  }
+
+  static void _ensurePathSet() {
+    if (_instance._path == null) {
+      throw StateError(
+          "StoreBox has not been initialized. Please call await StoreBox.init() in your main() function.");
+    }
   }
 }
 
-/// A persistent key-value store.
 class Box<V> {
   final String _name;
   final String _filePath;
@@ -97,52 +162,49 @@ class Box<V> {
   final Map<Type, TypeAdapter> _adaptersByType;
   final Map<String, V> _data = {};
 
-  Box._(this._name, this._filePath, this._cipher, this._adapters,
-      this._adaptersByType);
+  Box._(this._name, this._filePath, this._cipher, this._adapters, this._adaptersByType);
 
   Future<void> _init() async {
     final file = File(_filePath);
     if (!await file.exists()) return;
-
     var bytes = await file.readAsBytes();
     if (bytes.isEmpty) return;
-
-    if (_cipher != null) {
-      bytes = await _cipher!.decrypt(bytes);
-    }
-
+    if (_cipher != null) bytes = await _cipher!.decrypt(bytes);
     final reader = BinaryReader(bytes, _adapters);
     final decodedMap = reader.read() as Map;
-
     _data.addAll(decodedMap.cast<String, V>());
   }
 
-  /// Retrieves a value from the box.
   V? get(String key) => _data[key];
 
-  /// Saves a key-value pair to the box.
   Future<void> put(String key, V value) async {
     _data[key] = value;
     await _flush();
   }
 
-  /// Removes a key-value pair from the box.
   Future<void> delete(String key) async {
     _data.remove(key);
     await _flush();
+  }
+
+  Future<void> clear() async {
+    _data.clear();
+    await _flush();
+  }
+
+  V? operator [](String key) => get(key);
+  void operator []=(String key, V value) => put(key, value);
+
+  Map<String, V> getAll() {
+    return Map.from(_data);
   }
 
   Future<void> _flush() async {
     final writer = BinaryWriter(_adaptersByType);
     writer.write(_data);
     var bytes = writer.toBytes();
-
-    if (_cipher != null) {
-      bytes = await _cipher!.encrypt(bytes);
-    }
-
+    if (_cipher != null) bytes = await _cipher!.encrypt(bytes);
     final file = File(_filePath);
     await file.writeAsBytes(bytes, flush: true);
   }
 }
-

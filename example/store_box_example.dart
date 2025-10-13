@@ -31,26 +31,27 @@ class UserAdapter extends TypeAdapter<User> {
     writer.write(obj.age);
   }
 }
-
 Future<void> main() async {
   final dbPath = p.join(Directory.current.path, 'store_box_data');
   final dbDir = Directory(dbPath);
   if (await dbDir.exists()) await dbDir.delete(recursive: true);
 
-  // --- 3. Initialize StoreBox and Register Adapters ---
-  final store = StoreBox();
-  await store.init(dbPath);
-  store.registerAdapter(UserAdapter());
+  // --- 3. Initialize StoreBox and Register Adapters (The New Way) ---
+
+  // No instance needed! Just call the methods directly on the class.
+  await StoreBox.init(dbPath);
+  StoreBox.registerAdapter(UserAdapter());
 
   print('--- Testing Custom Objects ---');
-  final userBox = await store.openBox<User>('users');
+  final userBox = await StoreBox.openBox<User>('users'); // Use StoreBox directly
   await userBox.put('user1', User('Alice', 30));
   final retrievedUser = userBox.get('user1');
   print('Retrieved User: $retrievedUser');
 
   print('\n--- Testing Encryption ---');
   final password = utf8.encode('a_very_strong_password');
-  final secretBox = await store.openBox<String>('secrets', encryptionKey: password);
+  // Use StoreBox directly here as well
+  final secretBox = await StoreBox.openBox<String>('secrets', encryptionKey: password);
   await secretBox.put('apiKey', '123-ABC-789');
   print('Retrieved API Key: ${secretBox.get('apiKey')}');
 

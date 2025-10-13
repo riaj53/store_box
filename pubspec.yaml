@@ -1,6 +1,6 @@
 name: store_box
-description: A fast, enjoyable, and secure NoSQL database written in pure Dart. Inspired by Hive.
-version: 1.0.0
+description: A fast, enjoyable, and secure NoSQL database written in pure Dart.
+version: 2.0.0
 homepage: https://github.com/riaj53/store_box
 repository: https://github.com/riaj53/store_box
 issue_tracker: https://github.com/riaj53/store_box/issues
