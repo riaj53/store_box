@@ -41,6 +41,19 @@ class BinaryReader {
           list.add(read());
         }
         return list;
+
+    // --- THIS IS THE FIX ---
+      case 6: // Map
+        final len = read() as int;
+        final map = <dynamic, dynamic>{};
+        for (var i = 0; i < len; i++) {
+          final key = read();
+          final value = read();
+          map[key] = value;
+        }
+        return map;
+    // --- END OF FIX ---
+
       case 100: // Custom Object
         final typeId = read() as int;
         final adapter = _adapters[typeId];
